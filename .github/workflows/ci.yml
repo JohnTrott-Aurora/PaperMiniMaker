@@ -45,6 +45,12 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Create Frontend Dist Placeholder
+        shell: bash
+        run: |
+          mkdir -p frontend/dist
+          touch frontend/dist/index.html
+
       - name: Run Backend Tests
         run: go test -v ./...
 
