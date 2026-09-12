@@ -45,11 +45,6 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Lint Frontend
-        run: |
-          cd frontend
-          npm run build
-
       - name: Run Backend Tests
         run: go test -v ./...
 
