@@ -44,6 +44,7 @@ The purpose of this application is to create paper miniatures for Dungeons and D
 
 ### 4.3 Image Management
 * Users can copy an image from the internet and paste it directly into the creature box.
+* Users can also open an image from their local machine.
 * Inside the box, the user can adjust the pasted image using the following controls:
   * Pan Up, Down, Left, Right
   * Zoom In, Zoom Out
