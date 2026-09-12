@@ -3,6 +3,7 @@ name: CI & Release Build
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -62,3 +63,81 @@ jobs:
           else
             wails build
           fi
+
+      - name: Package Release Asset (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build\bin\PaperMiniMaker.exe -DestinationPath PaperMiniMaker-Windows.zip -Force
+
+      - name: Package Release Asset (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          zip -r PaperMiniMaker-macOS.zip build/bin/PaperMiniMaker.app
+
+      - name: Package Release Asset (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          tar -czf PaperMiniMaker-Linux.tar.gz -C build/bin PaperMiniMaker
+
+      - name: Upload Packaged Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-${{ matrix.os }}
+          path: |
+            PaperMiniMaker-Windows.zip
+            PaperMiniMaker-macOS.zip
+            PaperMiniMaker-Linux.tar.gz
+          if-no-files-found: ignore
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Windows Asset
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-windows-latest
+          path: ./artifacts
+
+      - name: Download macOS Asset
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-macos-latest
+          path: ./artifacts
+
+      - name: Download Linux Asset
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-ubuntu-latest
+          path: ./artifacts
+
+      - name: Determine Release Tag
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG_NAME=v0.0.0-draft-${{ github.run_number }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: Release ${{ env.TAG_NAME }}
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/PaperMiniMaker-Windows.zip
+            ./artifacts/PaperMiniMaker-macOS.zip
+            ./artifacts/PaperMiniMaker-Linux.tar.gz
