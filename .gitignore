@@ -1,0 +1,12 @@
+build/bin
+node_modules
+frontend/dist
+*.exe
+*.exe.manifest
+*.dll
+.DS_Store
+.idea/
+.vscode/
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/go/
