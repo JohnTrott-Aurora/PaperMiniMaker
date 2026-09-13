@@ -18,7 +18,6 @@ import {
 	ArrowRight, 
 	RefreshCw, 
 	BookOpen, 
-	Sparkles,
 	FileText
 } from 'lucide-react';
 import './App.css';
@@ -592,9 +591,41 @@ function App() {
 			{/* Header */}
 			<header className="app-header">
 				<div className="brand">
-					<Sparkles size={24} className="accent-glow" style={{ color: 'var(--accent-color)' }} />
-					<h1>PaperMiniMaker</h1>
-					<span>PROTOTYPE</span>
+					<svg viewBox="0 0 24 24" width="24" height="24" className="accent-glow" style={{ color: 'var(--accent-color)' }} fill="none" xmlns="http://www.w3.org/2000/svg">
+						{/* Left Ear */}
+						<path d="M4 10L1 11L4 14V10Z" fill="#3A6B2C" stroke="#1B2219" strokeWidth="1.2" strokeLinejoin="round" />
+						{/* Right Ear */}
+						<path d="M20 10L23 11L20 14V10Z" fill="#3A6B2C" stroke="#1B2219" strokeWidth="1.2" strokeLinejoin="round" />
+						
+						{/* Head Base */}
+						<rect x="4" y="6" width="16" height="14" rx="3" fill="#4E8B3E" stroke="#1B2219" strokeWidth="1.2" />
+						
+						{/* Hair / Helmet (Orcish Iron Helm) */}
+						<path d="M4 9C4 7 6 5 8 5H16C18 5 20 7 20 9V7C20 5.5 18 4 15 4H9C6 4 4 5.5 4 7V9Z" fill="#4A525A" stroke="#1B2219" strokeWidth="1.2" strokeLinejoin="round" />
+						<path d="M12 3V6" stroke="#4A525A" strokeWidth="2" strokeLinecap="round" />
+						
+						{/* Angry Brow Ridge */}
+						<path d="M5 9.5H19" stroke="#1B2219" strokeWidth="1.2" />
+						<path d="M5 10L9 11.5" stroke="#1B2219" strokeWidth="1.2" strokeLinecap="round" />
+						<path d="M19 10L15 11.5" stroke="#1B2219" strokeWidth="1.2" strokeLinecap="round" />
+						
+						{/* Red Eyes with Yellow Pupils */}
+						<rect x="6" y="11" width="3" height="1.5" fill="#E53935" />
+						<rect x="15" y="11" width="3" height="1.5" fill="#E53935" />
+						<circle cx="7.5" cy="11.75" r="0.5" fill="#FFEB3B" />
+						<circle cx="16.5" cy="11.75" r="0.5" fill="#FFEB3B" />
+						
+						{/* Orc Nose/Snout */}
+						<path d="M10 13.5H14V15H10V13.5Z" fill="#3A6B2C" stroke="#1B2219" strokeWidth="0.8" />
+						
+						{/* Mouth with Tusks */}
+						<path d="M7 17H17" stroke="#1B2219" strokeWidth="1.2" strokeLinecap="round" />
+						{/* Left Tusk */}
+						<path d="M8 17L8.5 15L9.5 17" fill="#FFFFFF" stroke="#1B2219" strokeWidth="0.8" strokeLinejoin="round" />
+						{/* Right Tusk */}
+						<path d="M16 17L15.5 15L14.5 17" fill="#FFFFFF" stroke="#1B2219" strokeWidth="0.8" strokeLinejoin="round" />
+					</svg>
+					<h1>Paper Mini Maker</h1>
 				</div>
 				<div className="header-actions">
 					<button className="btn btn-secondary" onClick={handleLoadProject} aria-label="Open Project File">
