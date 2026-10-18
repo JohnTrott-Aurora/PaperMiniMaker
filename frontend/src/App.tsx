@@ -63,6 +63,7 @@ function App() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [pageFormat, setPageFormat] = useState<'a4' | 'letter'>('a4');
 	const [allowAutoRotation, setAllowAutoRotation] = useState<boolean>(true);
+	const [includeCreatureNumber, setIncludeCreatureNumber] = useState<boolean>(true);
 	const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
 	// Create Creature Form State
@@ -258,7 +259,8 @@ function App() {
 		const payload = JSON.stringify({
 			creatures,
 			pageFormat,
-			allowAutoRotation
+			allowAutoRotation,
+			includeCreatureNumber
 		});
 		SaveProject(payload).then(savedPath => {
 			if (savedPath) {
@@ -281,6 +283,9 @@ function App() {
 					}
 					if (data.allowAutoRotation !== undefined) {
 						setAllowAutoRotation(data.allowAutoRotation);
+					}
+					if (data.includeCreatureNumber !== undefined) {
+						setIncludeCreatureNumber(data.includeCreatureNumber);
 					}
 					setSelectedId(null);
 					refreshLibraryAndRecents();
@@ -305,6 +310,9 @@ function App() {
 					}
 					if (data.allowAutoRotation !== undefined) {
 						setAllowAutoRotation(data.allowAutoRotation);
+					}
+					if (data.includeCreatureNumber !== undefined) {
+						setIncludeCreatureNumber(data.includeCreatureNumber);
 					}
 					setSelectedId(null);
 					refreshLibraryAndRecents();
@@ -522,10 +530,10 @@ function App() {
 					const labelStr = `#${c.number} ${c.name}`;
 					const textWidth = doc.getTextWidth(labelStr);
 
-					// Front Face Text: Right-side up
-					// Center horizontally on front face
+					// Front Base Tab Text: Right-side up
+					// Center horizontally and vertically on front base tab
 					const frontTextX = dims.width / 2;
-					const frontTextY = dims.tabHeight + dims.faceHeight * 2 - 4.4;
+					const frontTextY = dims.tabHeight + dims.faceHeight * 2 + (dims.tabHeight / 2);
 					const frontPt = getPDFPoint(frontTextX, frontTextY);
 
 					let frontDrawX = frontPt.x;
@@ -547,9 +555,10 @@ function App() {
 						baseline: 'middle'
 					});
 
-					// Back Face Text: Rotated 180 degrees (upside down on flat, right-side up folded)
+					// Back Base Tab Text: Rotated 180 degrees (upside down on flat, right-side up folded)
+					// Center horizontally and vertically on back base tab
 					const backTextX = dims.width / 2;
-					const backTextY = dims.tabHeight + 4.4;
+					const backTextY = dims.tabHeight / 2;
 					const backPt = getPDFPoint(backTextX, backTextY);
 
 					let backDrawX = backPt.x;
@@ -570,6 +579,76 @@ function App() {
 						angle: backAngle,
 						baseline: 'middle'
 					});
+
+					// Draw Corner Number Badges if enabled
+					if (includeCreatureNumber) {
+						doc.setFont('Helvetica', 'bold');
+						const numFontSize = c.number > 99 ? 5.5 : 7;
+						doc.setFontSize(numFontSize);
+
+						// Cap height for Helvetica Bold is ~0.718 of font size:
+						const capHeightMm = (numFontSize * 0.718) / (72 / 25.4);
+						const badgeSize = 4.5;
+						const badgeOffset = 1.0;
+						const numStr = String(c.number);
+						const numWidthMm = doc.getTextWidth(numStr);
+
+						// 1. Front Corner Badge: In top-left corner of front face
+						const frontBadgeCX = badgeOffset;
+						const frontBadgeCY = dims.tabHeight + dims.faceHeight + badgeOffset;
+						const frontCenterCX = frontBadgeCX + badgeSize / 2;
+						const frontCenterCY = frontBadgeCY + badgeSize / 2;
+						const frontCenterPt = getPDFPoint(frontCenterCX, frontCenterCY);
+
+						if (!packed.rotated) {
+							const pt = getPDFPoint(frontBadgeCX, frontBadgeCY);
+							doc.setFillColor(0, 0, 0);
+							doc.rect(pt.x, pt.y, badgeSize, badgeSize, 'F');
+							doc.setTextColor(255, 255, 255);
+							doc.text(numStr, frontCenterPt.x - numWidthMm / 2, frontCenterPt.y + capHeightMm / 2, {
+								angle: 0
+							});
+						} else {
+							const rx = pdfX + (dims.height - (frontBadgeCY + badgeSize));
+							const ry = pdfY + frontBadgeCX;
+							doc.setFillColor(0, 0, 0);
+							doc.rect(rx, ry, badgeSize, badgeSize, 'F');
+							doc.setTextColor(255, 255, 255);
+							doc.text(numStr, frontCenterPt.x + capHeightMm / 2, frontCenterPt.y + numWidthMm / 2, {
+								angle: 90
+							});
+						}
+
+						// 2. Back Corner Badge: In top-left corner of back face (mirrored along fold line)
+						const backBadgeCX = badgeOffset;
+						const backBadgeCY = dims.tabHeight + dims.faceHeight - badgeOffset - badgeSize;
+						const backCenterCX = backBadgeCX + badgeSize / 2;
+						const backCenterCY = backBadgeCY + badgeSize / 2;
+						const backCenterPt = getPDFPoint(backCenterCX, backCenterCY);
+
+						if (!packed.rotated) {
+							const pt = getPDFPoint(backBadgeCX, backBadgeCY);
+							doc.setFillColor(0, 0, 0);
+							doc.rect(pt.x, pt.y, badgeSize, badgeSize, 'F');
+							doc.setTextColor(255, 255, 255);
+							doc.text(numStr, backCenterPt.x + numWidthMm / 2, backCenterPt.y - capHeightMm / 2, {
+								angle: 180
+							});
+						} else {
+							const rx = pdfX + (dims.height - (backBadgeCY + badgeSize));
+							const ry = pdfY + backBadgeCX;
+							doc.setFillColor(0, 0, 0);
+							doc.rect(rx, ry, badgeSize, badgeSize, 'F');
+							doc.setTextColor(255, 255, 255);
+							doc.text(numStr, backCenterPt.x - capHeightMm / 2, backCenterPt.y - numWidthMm / 2, {
+								angle: 270
+							});
+						}
+
+						// Reset fill and text colors
+						doc.setFillColor(0, 0, 0);
+						doc.setTextColor(0, 0, 0);
+					}
 				}
 			}
 
@@ -816,13 +895,17 @@ function App() {
 												display: 'flex',
 												alignItems: 'center',
 												justifyContent: 'center',
-												fontSize: '7px',
-												color: '#777',
+												fontSize: '8px',
+												color: 'black',
 												fontWeight: 'bold',
-												boxSizing: 'border-box'
+												boxSizing: 'border-box',
+												overflow: 'hidden',
+												padding: '0 2px'
 											}}
 										>
-											<span style={{ transform: 'rotate(180deg)' }}>BASE TAB</span>
+											<span style={{ transform: 'rotate(180deg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '100%', textAlign: 'center' }}>
+												#{c.number} {c.name}
+											</span>
 										</div>
 
 										{/* Back Face */}
@@ -858,23 +941,32 @@ function App() {
 													(Paste/Upload Image)
 												</div>
 											)}
-											<div 
-												style={{
-													position: 'absolute',
-													top: '4px',
-													left: '0',
-													right: '0',
-													textAlign: 'center',
-													fontSize: '9px',
-													fontWeight: 'bold',
-													color: 'black',
-													textShadow: '1px 1px 0 white, -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white',
-													transform: 'rotate(180deg)',
-													pointerEvents: 'none'
-												}}
-											>
-												#{c.number} {c.name}
-											</div>
+											{includeCreatureNumber && (
+												<div 
+													style={{
+														position: 'absolute',
+														bottom: '1mm',
+														left: '1mm',
+														width: '4.5mm',
+														height: '4.5mm',
+														backgroundColor: 'black',
+														color: 'white',
+														fontSize: c.number > 99 ? '6px' : '8px',
+														fontWeight: 'bold',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														textAlign: 'center',
+														lineHeight: 1,
+														transform: 'rotate(180deg)',
+														zIndex: 4,
+														pointerEvents: 'none',
+														boxSizing: 'border-box'
+													}}
+												>
+													{c.number}
+												</div>
+											)}
 										</div>
 
 										{/* Top Red Fold Line */}
@@ -913,22 +1005,31 @@ function App() {
 													(Paste/Upload Image)
 												</div>
 											)}
-											<div 
-												style={{
-													position: 'absolute',
-													bottom: '4px',
-													left: '0',
-													right: '0',
-													textAlign: 'center',
-													fontSize: '9px',
-													fontWeight: 'bold',
-													color: 'black',
-													textShadow: '1px 1px 0 white, -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white',
-													pointerEvents: 'none'
-												}}
-											>
-												#{c.number} {c.name}
-											</div>
+											{includeCreatureNumber && (
+												<div 
+													style={{
+														position: 'absolute',
+														top: '1mm',
+														left: '1mm',
+														width: '4.5mm',
+														height: '4.5mm',
+														backgroundColor: 'black',
+														color: 'white',
+														fontSize: c.number > 99 ? '6px' : '8px',
+														fontWeight: 'bold',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														textAlign: 'center',
+														lineHeight: 1,
+														zIndex: 4,
+														pointerEvents: 'none',
+														boxSizing: 'border-box'
+													}}
+												>
+													{c.number}
+												</div>
+											)}
 										</div>
 
 										{/* Front Base Tab */}
@@ -942,13 +1043,17 @@ function App() {
 												display: 'flex',
 												alignItems: 'center',
 												justifyContent: 'center',
-												fontSize: '7px',
-												color: '#777',
+												fontSize: '8px',
+												color: 'black',
 												fontWeight: 'bold',
-												boxSizing: 'border-box'
+												boxSizing: 'border-box',
+												overflow: 'hidden',
+												padding: '0 2px'
 											}}
 										>
-											<span>BASE TAB</span>
+											<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '100%', textAlign: 'center' }}>
+												#{c.number} {c.name}
+											</span>
 										</div>
 									</div>
 								);
@@ -960,6 +1065,21 @@ function App() {
 
 			{/* Right Sidebar: Properties & Manipulator */}
 			<aside className="sidebar right-sidebar">
+				<div className="sidebar-section">
+					<h2>Template Settings</h2>
+					<div className="setting-row" style={{ borderBottom: 'none', padding: '4px 0' }}>
+						<span className="setting-label">Include creature number</span>
+						<label className="toggle-switch" title="Toggle corner creature numbering">
+							<input 
+								type="checkbox" 
+								checked={includeCreatureNumber} 
+								onChange={(e) => setIncludeCreatureNumber(e.target.checked)} 
+							/>
+							<span className="toggle-slider"></span>
+						</label>
+					</div>
+				</div>
+
 				<div className="sidebar-section">
 					<h2>Add Creature</h2>
 					<div className="form-group">
