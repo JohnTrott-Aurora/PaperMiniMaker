@@ -9,6 +9,7 @@ export interface Creature {
 	panY: number;     // in pixels
 	zoom: number;     // multiplier, default 1.0
 	rotation: number; // degrees, default 0
+	isNPC?: boolean;
 }
 
 export interface PackedCreature {

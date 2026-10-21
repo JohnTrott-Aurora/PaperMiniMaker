@@ -133,6 +133,16 @@ function App() {
 		}));
 	};
 
+	const handleToggleNPCTemplate = (checked: boolean) => {
+		if (selectedCreature) {
+			updateSelectedCreature('isNPC', checked);
+		} else if (creatures.length > 0) {
+			const target = creatures[0];
+			setSelectedId(target.id);
+			setCreatures(prev => prev.map(c => c.id === target.id ? { ...c, isNPC: checked } : c));
+		}
+	};
+
 	// Add Brand New Creature
 	const handleAddCreature = () => {
 		const newCreature: Creature = {
@@ -145,7 +155,8 @@ function App() {
 			panX: 0,
 			panY: 0,
 			zoom: 1.0,
-			rotation: 0
+			rotation: 0,
+			isNPC: false
 		};
 		setCreatures(prev => [...prev, newCreature]);
 		setSelectedId(newCreature.id);
@@ -240,7 +251,8 @@ function App() {
 			panX: 0,
 			panY: 0,
 			zoom: 1.0,
-			rotation: 0
+			rotation: 0,
+			isNPC: false
 		};
 		setCreatures(prev => [...prev, imported]);
 		setSelectedId(imported.id);
@@ -276,7 +288,10 @@ function App() {
 				try {
 					const data = JSON.parse(jsonStr);
 					if (Array.isArray(data.creatures)) {
-						setCreatures(data.creatures);
+						setCreatures(data.creatures.map((c: any) => ({
+							...c,
+							isNPC: c.isNPC !== undefined ? c.isNPC : (data.isNPC || false)
+						})));
 					}
 					if (data.pageFormat) {
 						setPageFormat(data.pageFormat);
@@ -303,7 +318,10 @@ function App() {
 				try {
 					const data = JSON.parse(jsonStr);
 					if (Array.isArray(data.creatures)) {
-						setCreatures(data.creatures);
+						setCreatures(data.creatures.map((c: any) => ({
+							...c,
+							isNPC: c.isNPC !== undefined ? c.isNPC : (data.isNPC || false)
+						})));
 					}
 					if (data.pageFormat) {
 						setPageFormat(data.pageFormat);
@@ -366,6 +384,10 @@ function App() {
 				ctx.save();
 				ctx.translate(w / 2, h / 2);
 
+				const effectivePanX = panX;
+				const effectivePanY = isBack ? -panY : panY;
+				ctx.translate(effectivePanX * (scale / 4), effectivePanY * (scale / 4)); // scale input offsets
+
 				if (isBack) {
 					ctx.scale(-1, 1);     // Mirror horizontally
 					ctx.rotate(Math.PI);  // Upside down (rotate 180 deg)
@@ -374,9 +396,6 @@ function App() {
 				const adjRotation = isBack ? -rotation : rotation;
 				ctx.rotate((adjRotation * Math.PI) / 180);
 				ctx.scale(zoom, zoom);
-
-				const adjPanX = isBack ? -panX : panX;
-				ctx.translate(adjPanX * (scale / 4), panY * (scale / 4)); // scale input offsets
 
 				const imgAspect = img.width / img.height;
 				const canvasAspect = w / h;
@@ -527,7 +546,8 @@ function App() {
 					doc.setFontSize(8);
 					doc.setTextColor(0, 0, 0);
 
-					const labelStr = `#${c.number} ${c.name}`;
+					const isCreatureNPC = !!c.isNPC;
+					const labelStr = isCreatureNPC ? c.name : `#${c.number} ${c.name}`;
 					const textWidth = doc.getTextWidth(labelStr);
 
 					// Front Base Tab Text: Right-side up
@@ -580,8 +600,8 @@ function App() {
 						baseline: 'middle'
 					});
 
-					// Draw Corner Number Badges if enabled
-					if (includeCreatureNumber) {
+					// Draw Corner Number Badges if enabled and not in NPC mode
+					if (!isCreatureNPC && includeCreatureNumber) {
 						doc.setFont('Helvetica', 'bold');
 						const numFontSize = c.number > 99 ? 5.5 : 7;
 						doc.setFontSize(numFontSize);
@@ -642,6 +662,83 @@ function App() {
 							doc.setTextColor(255, 255, 255);
 							doc.text(numStr, backCenterPt.x - capHeightMm / 2, backCenterPt.y - numWidthMm / 2, {
 								angle: 270
+							});
+						}
+
+						// Reset fill and text colors
+						doc.setFillColor(0, 0, 0);
+						doc.setTextColor(0, 0, 0);
+					}
+
+					// Draw NPC Name Banner across the bottom of the image sections if NPC is enabled
+					if (isCreatureNPC) {
+						doc.setFont('Helvetica', 'bold');
+						const bannerHeight = 4.5;
+						let bannerFontSize = 7.5;
+						doc.setFontSize(bannerFontSize);
+
+						let displayName = c.name;
+						while (doc.getTextWidth(displayName) > dims.width - 2 && bannerFontSize > 4.5) {
+							bannerFontSize -= 0.5;
+							doc.setFontSize(bannerFontSize);
+						}
+						if (doc.getTextWidth(displayName) > dims.width - 2) {
+							while (doc.getTextWidth(displayName + '…') > dims.width - 2 && displayName.length > 0) {
+								displayName = displayName.slice(0, -1);
+							}
+							displayName = displayName + '…';
+						}
+						const bannerTextWidth = doc.getTextWidth(displayName);
+
+						doc.setFillColor(0, 0, 0);
+						doc.setTextColor(255, 255, 255);
+
+						// 1. Front Face Banner: Across bottom of front face
+						const frontBannerCY = dims.tabHeight + dims.faceHeight * 2 - bannerHeight;
+						const frontCenterCX = dims.width / 2;
+						const frontCenterCY = frontBannerCY + bannerHeight / 2;
+						const frontCenterPt = getPDFPoint(frontCenterCX, frontCenterCY);
+
+						if (!packed.rotated) {
+							const pt = getPDFPoint(0, frontBannerCY);
+							doc.rect(pt.x, pt.y, dims.width, bannerHeight, 'F');
+							doc.text(displayName, frontCenterPt.x - bannerTextWidth / 2, frontCenterPt.y, {
+								angle: 0,
+								baseline: 'middle'
+							});
+						} else {
+							const rx = pdfX + (dims.height - (frontBannerCY + bannerHeight));
+							const ry = pdfY;
+							doc.rect(rx, ry, bannerHeight, dims.width, 'F');
+							doc.text(displayName, frontCenterPt.x, frontCenterPt.y - bannerTextWidth / 2, {
+								angle: 90,
+								baseline: 'top'
+							});
+						}
+
+						// 2. Back Face Banner: Across bottom of back face (near back base tab)
+						doc.setFillColor(0, 0, 0);
+						doc.setTextColor(255, 255, 255);
+
+						const backBannerCY = dims.tabHeight;
+						const backCenterCX = dims.width / 2;
+						const backCenterCY = backBannerCY + bannerHeight / 2;
+						const backCenterPt = getPDFPoint(backCenterCX, backCenterCY);
+
+						if (!packed.rotated) {
+							const pt = getPDFPoint(0, backBannerCY);
+							doc.rect(pt.x, pt.y, dims.width, bannerHeight, 'F');
+							doc.text(displayName, backCenterPt.x + bannerTextWidth / 2, backCenterPt.y, {
+								angle: 180,
+								baseline: 'bottom'
+							});
+						} else {
+							const rx = pdfX + (dims.height - (backBannerCY + bannerHeight));
+							const ry = pdfY;
+							doc.rect(rx, ry, bannerHeight, dims.width, 'F');
+							doc.text(displayName, backCenterPt.x, backCenterPt.y + bannerTextWidth / 2, {
+								angle: 270,
+								baseline: 'bottom'
 							});
 						}
 
@@ -853,11 +950,12 @@ function App() {
 							{page.creatures.map(packed => {
 								const c = packed.creature;
 								const isSelected = selectedId === c.id;
+								const isCreatureNPC = !!c.isNPC;
 								const dims = getCreatureDimensions(c.size, c.orientation);
 
 								// Base offsets and scaling inside card
-								const backPanX = -c.panX;
-								const backPanY = c.panY;
+								const backPanX = c.panX;
+								const backPanY = -c.panY;
 								const backRotation = -c.rotation;
 
 								return (
@@ -904,7 +1002,7 @@ function App() {
 											}}
 										>
 											<span style={{ transform: 'rotate(180deg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '100%', textAlign: 'center' }}>
-												#{c.number} {c.name}
+												{isCreatureNPC ? c.name : `#${c.number} ${c.name}`}
 											</span>
 										</div>
 
@@ -941,7 +1039,7 @@ function App() {
 													(Paste/Upload Image)
 												</div>
 											)}
-											{includeCreatureNumber && (
+											{!isCreatureNPC && includeCreatureNumber && (
 												<div 
 													style={{
 														position: 'absolute',
@@ -965,6 +1063,33 @@ function App() {
 													}}
 												>
 													{c.number}
+												</div>
+											)}
+											{isCreatureNPC && (
+												<div 
+													style={{
+														position: 'absolute',
+														top: 0,
+														left: 0,
+														width: '100%',
+														height: '4.5mm',
+														backgroundColor: 'black',
+														color: 'white',
+														fontSize: '7.5px',
+														fontWeight: 'bold',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														textAlign: 'center',
+														zIndex: 4,
+														pointerEvents: 'none',
+														boxSizing: 'border-box',
+														padding: '0 2px'
+													}}
+												>
+													<span style={{ transform: 'rotate(180deg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+														{c.name}
+													</span>
 												</div>
 											)}
 										</div>
@@ -1005,7 +1130,7 @@ function App() {
 													(Paste/Upload Image)
 												</div>
 											)}
-											{includeCreatureNumber && (
+											{!isCreatureNPC && includeCreatureNumber && (
 												<div 
 													style={{
 														position: 'absolute',
@@ -1030,6 +1155,33 @@ function App() {
 													{c.number}
 												</div>
 											)}
+											{isCreatureNPC && (
+												<div 
+													style={{
+														position: 'absolute',
+														bottom: 0,
+														left: 0,
+														width: '100%',
+														height: '4.5mm',
+														backgroundColor: 'black',
+														color: 'white',
+														fontSize: '7.5px',
+														fontWeight: 'bold',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														textAlign: 'center',
+														zIndex: 4,
+														pointerEvents: 'none',
+														boxSizing: 'border-box',
+														padding: '0 2px'
+													}}
+												>
+													<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+														{c.name}
+													</span>
+												</div>
+											)}
 										</div>
 
 										{/* Front Base Tab */}
@@ -1052,7 +1204,7 @@ function App() {
 											}}
 										>
 											<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '100%', textAlign: 'center' }}>
-												#{c.number} {c.name}
+												{isCreatureNPC ? c.name : `#${c.number} ${c.name}`}
 											</span>
 										</div>
 									</div>
@@ -1067,13 +1219,25 @@ function App() {
 			<aside className="sidebar right-sidebar">
 				<div className="sidebar-section">
 					<h2>Template Settings</h2>
-					<div className="setting-row" style={{ borderBottom: 'none', padding: '4px 0' }}>
+					<div className="setting-row" style={{ padding: '4px 0' }}>
 						<span className="setting-label">Include creature number</span>
 						<label className="toggle-switch" title="Toggle corner creature numbering">
 							<input 
 								type="checkbox" 
 								checked={includeCreatureNumber} 
 								onChange={(e) => setIncludeCreatureNumber(e.target.checked)} 
+							/>
+							<span className="toggle-slider"></span>
+						</label>
+					</div>
+					<div className="setting-row" style={{ borderBottom: 'none', padding: '4px 0', opacity: selectedCreature ? 1 : 0.6 }}>
+						<span className="setting-label">NPC</span>
+						<label className="toggle-switch" title={selectedCreature ? `Toggle NPC for ${selectedCreature.name}` : "Select a creature on the canvas to toggle NPC"}>
+							<input 
+								type="checkbox" 
+								checked={selectedCreature ? !!selectedCreature.isNPC : false} 
+								disabled={!selectedCreature}
+								onChange={(e) => updateSelectedCreature('isNPC', e.target.checked)} 
 							/>
 							<span className="toggle-slider"></span>
 						</label>
@@ -1151,6 +1315,18 @@ function App() {
 									value={selectedCreature.number}
 									onChange={(e) => updateSelectedCreature('number', parseInt(e.target.value) || 1)}
 								/>
+							</div>
+
+							<div className="setting-row" style={{ borderBottom: 'none', padding: '2px 0' }}>
+								<span className="setting-label">NPC</span>
+								<label className="toggle-switch" title="Toggle NPC mode for this creature">
+									<input 
+										type="checkbox" 
+										checked={!!selectedCreature.isNPC} 
+										onChange={(e) => updateSelectedCreature('isNPC', e.target.checked)} 
+									/>
+									<span className="toggle-slider"></span>
+								</label>
 							</div>
 
 							<div className="form-group">
